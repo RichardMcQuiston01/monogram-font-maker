@@ -1,5 +1,9 @@
 # Monogram Font Maker
 
+- NPM Package:  @richardmcquiston01/monogram-font-maker
+- Author:  Richard McQuiston
+- Website:  https://richardmcquiston.com/
+
 ## Overview
 
 Framework agnostic TypeScript based NPM package for an generating a Font from one or more sets of monogrammed letters.  User specifies single ZIP containing monogram image files, or they specify individual image files for letters(A-Z).  From the files, generate a font file where the letters are represented by the monogram font files.
