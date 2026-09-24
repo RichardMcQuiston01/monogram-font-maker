@@ -36,6 +36,11 @@ export async function loadLettersFromDirectory(
     if (letter === null) {
       continue;
     }
+    if (letter in letters) {
+      throw new Error(
+        `Duplicate monogram SVG for letter "${letter}" in "${directoryPath}" (also matched "${entryName}").`
+      );
+    }
     letters[letter] = await readFile(join(directoryPath, entryName), 'utf8');
   }
 
@@ -68,6 +73,11 @@ export async function loadLettersFromFiles(
     if (letter === null) {
       throw new Error(
         `"${filePath}" doesn't match the filename pattern "${pattern}".`
+      );
+    }
+    if (letter in letters) {
+      throw new Error(
+        `Duplicate monogram SVG for letter "${letter}" (also matched "${filePath}").`
       );
     }
     letters[letter] = await readFile(filePath, 'utf8');

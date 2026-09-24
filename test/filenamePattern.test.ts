@@ -56,4 +56,27 @@ describe('compileFilenamePattern / matchFilenamePattern', () => {
       /exactly one \{letter\} or \{number\} placeholder, found 2/i
     );
   });
+
+  it('captures a full Unicode code point, not half a surrogate pair', () => {
+    const pattern = compileFilenamePattern('{letter}.svg');
+    // U+1D4D0 MATHEMATICAL SCRIPT CAPITAL A, a surrogate pair in UTF-16
+    const astralLetter = '\u{1D4D0}';
+
+    expect(matchFilenamePattern(`${astralLetter}.svg`, pattern)).toBe(
+      astralLetter
+    );
+  });
+
+  it('lets a wildcard span a newline, matching its "any run of characters" docs', () => {
+    const pattern = compileFilenamePattern('*_{letter}.svg');
+
+    expect(matchFilenamePattern('line1\nline2_A.svg', pattern)).toBe('A');
+  });
+
+  it('rejects filenames past the length guard, even if they would otherwise match', () => {
+    const pattern = compileFilenamePattern('*_{letter}.svg');
+    const longFilename = `${'x'.repeat(600)}_A.svg`;
+
+    expect(matchFilenamePattern(longFilename, pattern)).toBeNull();
+  });
 });

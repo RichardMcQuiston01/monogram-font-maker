@@ -83,6 +83,30 @@ describe('Node filesystem helpers', () => {
     expect(letters).toEqual({ '0': SVG_A });
   });
 
+  it('loadLettersFromDirectory throws on two files resolving to the same letter', async () => {
+    await writeFile(join(dir, 'draft_monogram_A.svg'), SVG_A);
+    await writeFile(join(dir, 'final_monogram_A.svg'), SVG_B);
+
+    await expect(
+      loadLettersFromDirectory(dir, {
+        filenamePattern: '*_monogram_{letter}.svg',
+      })
+    ).rejects.toThrow(/duplicate/i);
+  });
+
+  it('loadLettersFromFiles throws on two paths resolving to the same letter', async () => {
+    const pathA1 = join(dir, 'draft_monogram_A.svg');
+    const pathA2 = join(dir, 'final_monogram_A.svg');
+    await writeFile(pathA1, SVG_A);
+    await writeFile(pathA2, SVG_B);
+
+    await expect(
+      loadLettersFromFiles([pathA1, pathA2], {
+        filenamePattern: '*_monogram_{letter}.svg',
+      })
+    ).rejects.toThrow(/duplicate/i);
+  });
+
   it('writeMonogramFont writes a non-empty OpenType font file to disk', async () => {
     const outputPath = join(dir, 'Monogram.otf');
 

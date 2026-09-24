@@ -57,8 +57,21 @@ export function compileFilenamePattern(pattern: FilenamePattern): RegExp {
     );
   }
 
-  return new RegExp(`^${source}$`, 'i');
+  // 'u' makes `.` match one full Unicode code point (not half a surrogate
+  // pair); 's' makes it match line terminators too, matching the "any run
+  // of characters"/"any kind" wording in the docs above.
+  return new RegExp(`^${source}$`, 'ius');
 }
+
+/**
+ * Filenames longer than this are rejected without being matched against the
+ * pattern. Real monogram filenames are nowhere near this long; the guard
+ * exists because a ZIP entry name is attacker-controlled input (up to 64 KiB
+ * per the ZIP spec) and a pattern with several `*` wildcards backtracks in
+ * time polynomial in the input length, so an unbounded name is a cheap way
+ * to make matching slow.
+ */
+const MAX_FILENAME_LENGTH = 512;
 
 /**
  * Matches `filename` (a basename, not a path) against a pattern already
@@ -69,5 +82,8 @@ export function matchFilenamePattern(
   filename: string,
   compiledPattern: RegExp
 ): string | null {
+  if (filename.length > MAX_FILENAME_LENGTH) {
+    return null;
+  }
   return filename.match(compiledPattern)?.[1] ?? null;
 }
