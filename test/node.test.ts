@@ -36,8 +36,20 @@ describe('Node filesystem helpers', () => {
     await writeFile(join(dir, 'README.md'), 'not a monogram');
 
     await expect(loadLettersFromDirectory(dir)).rejects.toThrow(
-      /no single-letter SVG files/i
+      /no filenames matching the pattern/i
     );
+  });
+
+  it('loadLettersFromDirectory accepts a custom filenamePattern', async () => {
+    await writeFile(join(dir, 'butterfly_monogram_A.svg'), SVG_A);
+    await writeFile(join(dir, 'butterfly_monogram_b.svg'), SVG_B);
+    await writeFile(join(dir, 'A.svg'), SVG_A); // wrong shape, ignored
+
+    const letters = await loadLettersFromDirectory(dir, {
+      filenamePattern: '*_monogram_{letter}.svg',
+    });
+
+    expect(letters).toEqual({ A: SVG_A, b: SVG_B });
   });
 
   it('loadLettersFromFiles reads an explicit list of file paths', async () => {
@@ -56,8 +68,19 @@ describe('Node filesystem helpers', () => {
     await writeFile(badPath, SVG_A);
 
     await expect(loadLettersFromFiles([badPath])).rejects.toThrow(
-      /isn't named like a single monogram letter/i
+      /doesn't match the filename pattern/i
     );
+  });
+
+  it('loadLettersFromFiles accepts a {number} filenamePattern', async () => {
+    const path0 = join(dir, 'monogram_0.svg');
+    await writeFile(path0, SVG_A);
+
+    const letters = await loadLettersFromFiles([path0], {
+      filenamePattern: '*_{number}.svg',
+    });
+
+    expect(letters).toEqual({ '0': SVG_A });
   });
 
   it('writeMonogramFont writes a non-empty OpenType font file to disk', async () => {

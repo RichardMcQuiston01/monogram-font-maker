@@ -3,26 +3,36 @@ import { basename, join } from 'node:path';
 import {
   generateMonogramFont,
   generateMonogramFontFromZip,
+  type FilenameMatchOptions,
   type LetterSvgMap,
   type MonogramFontOptions,
 } from './index.js';
-import { matchLetterSvgFilename } from './core/zip.js';
+import {
+  compileFilenamePattern,
+  matchFilenamePattern,
+  DEFAULT_FILENAME_PATTERN,
+} from './core/filenamePattern.js';
 
 export * from './index.js';
 
 /**
  * Reads a directory of individual monogram SVGs (`A.svg`, `b.svg`, ...) into
  * a {@link LetterSvgMap}, for callers who provide one file per letter
- * instead of a single ZIP.
+ * instead of a single ZIP. Pass `options.filenamePattern` if the files don't
+ * use the default `A.svg` naming.
  */
 export async function loadLettersFromDirectory(
-  directoryPath: string
+  directoryPath: string,
+  options: FilenameMatchOptions = {}
 ): Promise<LetterSvgMap> {
+  const pattern = options.filenamePattern ?? DEFAULT_FILENAME_PATTERN;
+  const compiledPattern = compileFilenamePattern(pattern);
+
   const entries = await readdir(directoryPath);
   const letters: Record<string, string> = {};
 
   for (const entryName of entries) {
-    const letter = matchLetterSvgFilename(entryName);
+    const letter = matchFilenamePattern(entryName, compiledPattern);
     if (letter === null) {
       continue;
     }
@@ -31,7 +41,7 @@ export async function loadLettersFromDirectory(
 
   if (Object.keys(letters).length === 0) {
     throw new Error(
-      `No single-letter SVG files (e.g. "A.svg") found in "${directoryPath}".`
+      `No filenames matching the pattern "${pattern}" found in "${directoryPath}".`
     );
   }
 
@@ -41,17 +51,23 @@ export async function loadLettersFromDirectory(
 /**
  * Reads an explicit list of individual monogram SVG file paths into a
  * {@link LetterSvgMap}; each file's letter is taken from its own basename.
+ * Pass `options.filenamePattern` if the files don't use the default `A.svg`
+ * naming.
  */
 export async function loadLettersFromFiles(
-  filePaths: readonly string[]
+  filePaths: readonly string[],
+  options: FilenameMatchOptions = {}
 ): Promise<LetterSvgMap> {
+  const pattern = options.filenamePattern ?? DEFAULT_FILENAME_PATTERN;
+  const compiledPattern = compileFilenamePattern(pattern);
+
   const letters: Record<string, string> = {};
 
   for (const filePath of filePaths) {
-    const letter = matchLetterSvgFilename(basename(filePath));
+    const letter = matchFilenamePattern(basename(filePath), compiledPattern);
     if (letter === null) {
       throw new Error(
-        `"${filePath}" isn't named like a single monogram letter (expected e.g. "A.svg").`
+        `"${filePath}" doesn't match the filename pattern "${pattern}".`
       );
     }
     letters[letter] = await readFile(filePath, 'utf8');
@@ -70,13 +86,22 @@ export async function writeMonogramFont(
   await writeFile(outputFilePath, Buffer.from(fontBytes));
 }
 
-/** Builds a monogram font from a ZIP file on disk and writes it to disk. */
+/**
+ * Builds a monogram font from a ZIP file on disk and writes it to disk. Pass
+ * `filenameOptions.filenamePattern` if the archive doesn't use the default
+ * `A.svg` naming.
+ */
 export async function writeMonogramFontFromZipFile(
   zipFilePath: string,
   options: MonogramFontOptions,
-  outputFilePath: string
+  outputFilePath: string,
+  filenameOptions?: FilenameMatchOptions
 ): Promise<void> {
   const zipBytes = await readFile(zipFilePath);
-  const fontBytes = await generateMonogramFontFromZip(zipBytes, options);
+  const fontBytes = await generateMonogramFontFromZip(
+    zipBytes,
+    options,
+    filenameOptions
+  );
   await writeFile(outputFilePath, Buffer.from(fontBytes));
 }

@@ -13,7 +13,17 @@ export {
   type ParsedSvgDocument,
   type SvgViewBox,
 } from './core/svgDocument.js';
-export { extractLettersFromZip, type ZipInput } from './core/zip.js';
+export {
+  extractLettersFromZip,
+  type FilenameMatchOptions,
+  type ZipInput,
+} from './core/zip.js';
+export {
+  compileFilenamePattern,
+  matchFilenamePattern,
+  DEFAULT_FILENAME_PATTERN,
+  type FilenamePattern,
+} from './core/filenamePattern.js';
 
 import type { Font } from 'opentype.js';
 import {
@@ -22,7 +32,11 @@ import {
   type LetterSvgMap,
   type MonogramFontOptions,
 } from './core/fontBuilder.js';
-import { extractLettersFromZip, type ZipInput } from './core/zip.js';
+import {
+  extractLettersFromZip,
+  type FilenameMatchOptions,
+  type ZipInput,
+} from './core/zip.js';
 
 /**
  * Builds a monogram font and serializes it straight to OTF/TTF bytes — the
@@ -40,11 +54,14 @@ export function generateMonogramFont(
 /**
  * Convenience wrapper for the common case of a single ZIP upload: extracts
  * one SVG per letter from the archive, then builds and serializes the font.
+ * Pass `filenameOptions.filenamePattern` if the archive doesn't use the
+ * default `A.svg` naming (see {@link FilenamePattern}).
  */
 export async function generateMonogramFontFromZip(
   zipData: ZipInput,
-  options: MonogramFontOptions
+  options: MonogramFontOptions,
+  filenameOptions?: FilenameMatchOptions
 ): Promise<ArrayBuffer> {
-  const letters = await extractLettersFromZip(zipData);
+  const letters = await extractLettersFromZip(zipData, filenameOptions);
   return generateMonogramFont(letters, options);
 }

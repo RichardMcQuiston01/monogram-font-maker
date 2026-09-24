@@ -49,7 +49,34 @@ describe('extractLettersFromZip', () => {
     const zipBytes = await zip.generateAsync({ type: 'uint8array' });
 
     await expect(extractLettersFromZip(zipBytes)).rejects.toThrow(
-      /no single-letter SVG files/i
+      /no filenames matching the pattern/i
     );
+  });
+
+  it('accepts a custom filenamePattern', async () => {
+    const zip = new JSZip();
+    zip.file('butterfly_monogram_A.svg', SVG_A);
+    zip.file('butterfly_monogram_b.svg', SVG_B);
+    zip.file('A.svg', SVG_A); // wrong shape for this pattern, ignored
+    const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+
+    const letters = await extractLettersFromZip(zipBytes, {
+      filenamePattern: '*_monogram_{letter}.svg',
+    });
+
+    expect(letters).toEqual({ A: SVG_A, b: SVG_B });
+  });
+
+  it('accepts a {number} filenamePattern', async () => {
+    const zip = new JSZip();
+    zip.file('monogram_0.svg', SVG_A);
+    zip.file('monogram_9.svg', SVG_B);
+    const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+
+    const letters = await extractLettersFromZip(zipBytes, {
+      filenamePattern: '*_{number}.svg',
+    });
+
+    expect(letters).toEqual({ '0': SVG_A, '9': SVG_B });
   });
 });

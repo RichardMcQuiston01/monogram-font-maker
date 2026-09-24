@@ -23,6 +23,32 @@ Every SVG is matched to a letter purely by its filename, wherever it comes from 
 - Anything that doesn't match this `<one character>.svg` shape — a `README.md`, a `.gitignore`, a folder of source files, a multi-character filename — is silently skipped rather than causing an error.
 - If two different files resolve to the same letter (e.g. two `A.svg` files in different folders of the same ZIP), that's treated as a mistake worth surfacing: it throws rather than silently picking one. Rename one of them.
 
+#### Custom filename patterns
+
+If your artwork isn't named `<letter>.svg`, pass a `filenamePattern` option to `extractLettersFromZip`, `generateMonogramFontFromZip`, `loadLettersFromDirectory`, `loadLettersFromFiles`, or `writeMonogramFontFromZipFile` describing where the letter sits in the filename instead. A pattern is a small template with two placeholder tokens and one wildcard:
+
+| Token      | Matches                               |
+| ---------- | ------------------------------------- |
+| `{letter}` | exactly one character, of any kind    |
+| `{number}` | exactly one digit (`0`-`9`)           |
+| `*`        | any run of characters (e.g. a prefix) |
+
+Everything else in the template is matched literally (case-insensitively), and the template must contain **exactly one** `{letter}` or `{number}` token — that's the character captured for the glyph.
+
+```ts
+// "butterfly_monogram_A.svg" -> letter "A"
+const letters = await extractLettersFromZip(zipBytes, {
+  filenamePattern: '*_monogram_{letter}.svg',
+});
+
+// "monogram_0.svg" .. "monogram_9.svg" -> digit glyphs "0".."9"
+const digits = await extractLettersFromZip(zipBytes, {
+  filenamePattern: '*_{number}.svg',
+});
+```
+
+`{number}` isn't strictly necessary — `{letter}` also matches a digit — but it rejects filenames where that position isn't a digit, which catches a typo (`monogram_A.svg` sneaking into what should be an all-digits set) instead of silently turning it into a glyph named `"A"`.
+
 ### ZIP archive structure
 
 `extractLettersFromZip` and `generateMonogramFontFromZip` accept a single ZIP archive containing one SVG per letter. There's no required folder layout — every entry in the archive is matched by its own filename (see above), not by its path, so files can sit at the archive root or be nested inside subfolders to any depth. Both of these are valid:

@@ -1,6 +1,6 @@
 {
   "name": "@richardmcquiston01/monogram-font-maker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-agnostic TypeScript library that turns a set of monogram letter SVGs into an installable OTF/TTF font, so laser-template tools don't need every letter imported as a separate image.",
   "author": "Richard McQuiston <https://richardmcquiston.com/>",
   "license": "Apache-2.0",
