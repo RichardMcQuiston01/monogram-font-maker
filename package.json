@@ -1,0 +1,75 @@
+{
+  "name": "@richardmcquiston01/monogram-font-maker",
+  "version": "0.1.0",
+  "description": "Framework-agnostic TypeScript library that turns a set of monogram letter SVGs into an installable OTF/TTF font, so laser-template tools don't need every letter imported as a separate image.",
+  "author": "Richard McQuiston <https://richardmcquiston.com/>",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "require": "./dist/node.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "COPYRIGHT"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "monogram",
+    "font",
+    "opentype",
+    "svg",
+    "laser",
+    "ttf",
+    "otf",
+    "font-generator"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richardmcquiston01/monogram-font-maker.git"
+  },
+  "homepage": "https://richardmcquiston.com/",
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "opentype.js": "^2.0.0",
+    "parse-svg-path": "^0.2.0",
+    "svg-arc-to-cubic-bezier": "^3.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.70.1",
+    "vitest": "^5.0.1"
+  }
+}
