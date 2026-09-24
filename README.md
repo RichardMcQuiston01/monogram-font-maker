@@ -14,6 +14,48 @@ The point is to remove the manual, per-letter image import step from laser-templ
 
 Monogram letters must be supplied as SVG (`<svg viewBox="..."><path d="..."/></svg>`), one `<path>`-based design per letter. SVG was chosen over raster formats (PNG/JPG) because it already carries the clean vector outlines a font glyph needs — no lossy auto-tracing step, and no fidelity loss for laser-ready artwork. Each SVG needs a `viewBox` (or `width`/`height`) so its artwork can be scaled into the font's grid; groups, transforms, and non-`<path>` shapes (`<circle>`, `<rect>`, text, etc.) aren't resolved yet, so flatten artwork to paths before use.
 
+### Filenames
+
+Every SVG is matched to a letter purely by its filename, wherever it comes from (a ZIP, a directory, or an explicit file list): the **base name** (the filename on its own, ignoring any folder path) must be exactly one character followed by `.svg` — `A.svg`, `b.svg`, `1.svg`, and so on.
+
+- The `.svg` extension is matched case-insensitively (`.svg`, `.SVG`, `.Svg` all work).
+- The letter itself is **case-sensitive**: `A.svg` and `a.svg` produce two different glyphs (`A` and `a`), not one glyph used for both cases.
+- Anything that doesn't match this `<one character>.svg` shape — a `README.md`, a `.gitignore`, a folder of source files, a multi-character filename — is silently skipped rather than causing an error.
+- If two different files resolve to the same letter (e.g. two `A.svg` files in different folders of the same ZIP), that's treated as a mistake worth surfacing: it throws rather than silently picking one. Rename one of them.
+
+### ZIP archive structure
+
+`extractLettersFromZip` and `generateMonogramFontFromZip` accept a single ZIP archive containing one SVG per letter. There's no required folder layout — every entry in the archive is matched by its own filename (see above), not by its path, so files can sit at the archive root or be nested inside subfolders to any depth. Both of these are valid:
+
+```
+my-monogram.zip
+├── A.svg
+├── b.svg
+└── C.svg
+```
+
+```
+my-monogram.zip
+└── MyFontKit/
+    ├── letters/
+    │   ├── A.svg
+    │   └── b.svg
+    └── README.txt        ← ignored, doesn't match "<letter>.svg"
+```
+
+An archive with no filename matching the `<letter>.svg` pattern anywhere in it throws, rather than silently producing an empty font.
+
+**Note for the Node-only `loadLettersFromDirectory` helper:** unlike the ZIP reader, it does _not_ recurse into subfolders — it only looks at files directly inside the directory you give it. Keep every letter's SVG flat in one folder when using it:
+
+```
+monogram-svgs/
+├── A.svg
+├── b.svg
+└── C.svg
+```
+
+`loadLettersFromFiles` skips directory scanning entirely and takes an explicit list of paths; each path's own basename must still match the `<letter>.svg` pattern.
+
 ### Output format
 
 Fonts are generated as installable OTF/TTF — the format design software already knows how to install and use, and one that also loads fine as a web font.
@@ -23,7 +65,7 @@ Fonts are generated as installable OTF/TTF — the format design software alread
 ### Prerequisites
 
 - Node.js >= 18 (for the Node-only helpers under the `./node` subpath; the core API also runs in any modern browser)
-- Monogram artwork as SVGs, one per letter, named `A.svg`, `b.svg`, etc. (matched by filename when read from a directory or ZIP)
+- Monogram artwork as SVGs, one per letter, named `A.svg`, `b.svg`, etc. — see [Filenames](#filenames) and [ZIP archive structure](#zip-archive-structure) above for the exact rules
 
 ### Installation
 
