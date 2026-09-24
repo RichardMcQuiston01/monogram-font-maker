@@ -55,7 +55,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/richardmcquiston01/monogram-font-maker.git"
+    "url": "git+https://github.com/RichardMcQuiston01/monogram-font-maker.git"
   },
   "homepage": "https://richardmcquiston.com/",
   "dependencies": {
