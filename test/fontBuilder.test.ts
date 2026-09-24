@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import JSZip from 'jszip';
 import { parse as parseFont } from 'opentype.js';
 import {
   buildMonogramFont,
   fontToArrayBuffer,
 } from '../src/core/fontBuilder.js';
-import { generateMonogramFont } from '../src/index.js';
+import {
+  generateMonogramFont,
+  generateMonogramFontFromZip,
+} from '../src/index.js';
 
 const LETTER_SVGS = {
   A: '<svg viewBox="0 0 60 100"><path d="M0,0 L60,0 L60,100 L0,100 Z"/></svg>',
@@ -57,5 +61,31 @@ describe('generateMonogramFont (round trip)', () => {
     expect(bytes).toEqual(
       generateMonogramFont(LETTER_SVGS, { familyName: 'Test Monogram' })
     );
+  });
+});
+
+describe('generateMonogramFontFromZip', () => {
+  it('forwards a custom filenamePattern through to the ZIP extraction step', async () => {
+    const zip = new JSZip();
+    zip.file(
+      'butterfly_monogram_A.svg',
+      '<svg viewBox="0 0 60 100"><path d="M0,0 L60,0 L60,100 L0,100 Z"/></svg>'
+    );
+    zip.file(
+      'butterfly_monogram_B.svg',
+      '<svg viewBox="0 0 40 100"><path d="M0,0 L40,0 L40,100 L0,100 Z"/></svg>'
+    );
+    const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+
+    const fontBytes = await generateMonogramFontFromZip(
+      zipBytes,
+      { familyName: 'Test Monogram' },
+      { filenamePattern: '*_monogram_{letter}.svg' }
+    );
+
+    const parsed = parseFont(fontBytes);
+    expect(parsed.glyphs.length).toBe(3);
+    expect(parsed.charToGlyph('A').name).toBe('A');
+    expect(parsed.charToGlyph('B').name).toBe('B');
   });
 });
