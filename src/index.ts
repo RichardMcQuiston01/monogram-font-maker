@@ -20,6 +20,7 @@ export {
 } from './core/zip.js';
 export {
   compileFilenamePattern,
+  type CompiledFilenamePattern,
   matchFilenamePattern,
   DEFAULT_FILENAME_PATTERN,
   type FilenamePattern,

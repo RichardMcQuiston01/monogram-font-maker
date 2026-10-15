@@ -1,4 +1,5 @@
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import type { Dirent } from 'node:fs';
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
   generateMonogramFont,
@@ -9,17 +10,59 @@ import {
 } from './index.js';
 import {
   compileFilenamePattern,
-  matchFilenamePattern,
   DEFAULT_FILENAME_PATTERN,
 } from './core/filenamePattern.js';
+import { collectLetters, type LetterSource } from './core/letterCollection.js';
 
 export * from './index.js';
+
+/** Reads a regular file as UTF-8, refusing anything bigger than `maxBytes`. */
+async function readTextFile(
+  filePath: string,
+  maxBytes: number
+): Promise<string> {
+  const fileStats = await stat(filePath);
+  if (!fileStats.isFile()) {
+    throw new Error(`"${filePath}" is not a file.`);
+  }
+  if (fileStats.size > maxBytes) {
+    throw new Error(
+      `"${filePath}" is ${fileStats.size} bytes, more than the limit of ${maxBytes}.`
+    );
+  }
+  const bytes = await readFile(filePath);
+  if (bytes.byteLength > maxBytes) {
+    throw new Error(
+      `"${filePath}" grew to ${bytes.byteLength} bytes while reading, more than the limit of ${maxBytes}.`
+    );
+  }
+  return bytes.toString('utf8');
+}
+
+async function isRegularFile(
+  entry: Dirent,
+  entryPath: string
+): Promise<boolean> {
+  if (entry.isFile()) {
+    return true;
+  }
+  if (!entry.isSymbolicLink()) {
+    return false;
+  }
+  try {
+    return (await stat(entryPath)).isFile();
+  } catch {
+    // A dangling link points at nothing, so there's no file to load.
+    return false;
+  }
+}
 
 /**
  * Reads a directory of individual monogram SVGs (`A.svg`, `b.svg`, ...) into
  * a {@link LetterSvgMap}, for callers who provide one file per letter
- * instead of a single ZIP. Pass `options.filenamePattern` if the files don't
- * use the default `A.svg` naming.
+ * instead of a single ZIP. Subdirectories and non-matching names are
+ * ignored. Pass `options.filenamePattern` if the files don't use the default
+ * `A.svg` naming.
  */
 export async function loadLettersFromDirectory(
   directoryPath: string,
@@ -28,35 +71,33 @@ export async function loadLettersFromDirectory(
   const pattern = options.filenamePattern ?? DEFAULT_FILENAME_PATTERN;
   const compiledPattern = compileFilenamePattern(pattern);
 
-  const entries = await readdir(directoryPath);
-  const letters: Record<string, string> = {};
-
-  for (const entryName of entries) {
-    const letter = matchFilenamePattern(entryName, compiledPattern);
-    if (letter === null) {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  const sources: LetterSource[] = [];
+  for (const entry of entries) {
+    const entryPath = join(directoryPath, entry.name);
+    if (!(await isRegularFile(entry, entryPath))) {
       continue;
     }
-    if (letter in letters) {
-      throw new Error(
-        `Duplicate monogram SVG for letter "${letter}" in "${directoryPath}" (also matched "${entryName}").`
-      );
-    }
-    letters[letter] = await readFile(join(directoryPath, entryName), 'utf8');
+    sources.push({
+      baseName: entry.name,
+      label: entry.name,
+      readText: (maxBytes: number) => readTextFile(entryPath, maxBytes),
+    });
   }
 
-  if (Object.keys(letters).length === 0) {
-    throw new Error(
-      `No filenames matching the pattern "${pattern}" found in "${directoryPath}".`
-    );
-  }
-
-  return letters;
+  return collectLetters(sources, {
+    pattern,
+    compiledPattern,
+    inputDescription: `"${directoryPath}"`,
+    onUnmatched: 'skip',
+  });
 }
 
 /**
  * Reads an explicit list of individual monogram SVG file paths into a
  * {@link LetterSvgMap}; each file's letter is taken from its own basename.
- * Pass `options.filenamePattern` if the files don't use the default `A.svg`
+ * A path that doesn't match, or isn't a file, is an error. Pass
+ * `options.filenamePattern` if the files don't use the default `A.svg`
  * naming.
  */
 export async function loadLettersFromFiles(
@@ -66,24 +107,18 @@ export async function loadLettersFromFiles(
   const pattern = options.filenamePattern ?? DEFAULT_FILENAME_PATTERN;
   const compiledPattern = compileFilenamePattern(pattern);
 
-  const letters: Record<string, string> = {};
+  const sources: LetterSource[] = filePaths.map((filePath) => ({
+    baseName: basename(filePath),
+    label: filePath,
+    readText: (maxBytes: number) => readTextFile(filePath, maxBytes),
+  }));
 
-  for (const filePath of filePaths) {
-    const letter = matchFilenamePattern(basename(filePath), compiledPattern);
-    if (letter === null) {
-      throw new Error(
-        `"${filePath}" doesn't match the filename pattern "${pattern}".`
-      );
-    }
-    if (letter in letters) {
-      throw new Error(
-        `Duplicate monogram SVG for letter "${letter}" (also matched "${filePath}").`
-      );
-    }
-    letters[letter] = await readFile(filePath, 'utf8');
-  }
-
-  return letters;
+  return collectLetters(sources, {
+    pattern,
+    compiledPattern,
+    inputDescription: 'The file list',
+    onUnmatched: 'error',
+  });
 }
 
 /** Builds a monogram font from an in-memory letter map and writes it to disk. */

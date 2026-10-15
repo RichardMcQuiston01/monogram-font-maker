@@ -80,3 +80,38 @@ describe('extractLettersFromZip', () => {
     expect(letters).toEqual({ '0': SVG_A, '9': SVG_B });
   });
 });
+
+describe('extractLettersFromZip input handling', () => {
+  it('matches entries whose names use backslash separators', async () => {
+    const zip = new JSZip();
+    zip.file('letters\\A.svg', SVG_A);
+    zip.file('letters\\sub/b.svg', SVG_B);
+    const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+
+    const letters = await extractLettersFromZip(zipBytes);
+
+    expect(letters).toEqual({ A: SVG_A, b: SVG_B });
+  });
+
+  it('rejects an entry that expands past the per-entry size limit', async () => {
+    const zip = new JSZip();
+    zip.file('A.svg', ' '.repeat(6 * 1024 * 1024), { compression: 'DEFLATE' });
+    const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+
+    await expect(extractLettersFromZip(zipBytes)).rejects.toThrow(
+      /more than the limit/i
+    );
+  });
+
+  it('rejects an archive with too many entries', async () => {
+    const zip = new JSZip();
+    for (let index = 0; index < 1001; index += 1) {
+      zip.file(`notes${index}.txt`, 'x');
+    }
+    const zipBytes = await zip.generateAsync({ type: 'uint8array' });
+
+    await expect(extractLettersFromZip(zipBytes)).rejects.toThrow(
+      /more than the limit of 1000/i
+    );
+  });
+});

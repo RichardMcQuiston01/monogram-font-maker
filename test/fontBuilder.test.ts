@@ -89,3 +89,28 @@ describe('generateMonogramFontFromZip', () => {
     expect(parsed.charToGlyph('B').name).toBe('B');
   });
 });
+
+describe('buildMonogramFont validation', () => {
+  const letters = {
+    A: '<svg viewBox="0 0 10 10"><path d="M0,0 L10,10 Z"/></svg>',
+  };
+
+  it.each([
+    [{ familyName: 'T', unitsPerEm: -1000 }, /unitsPerEm/],
+    [{ familyName: 'T', unitsPerEm: 1_000_000_000 }, /unitsPerEm/],
+    [{ familyName: 'T', unitsPerEm: Infinity }, /unitsPerEm/],
+    [
+      { familyName: 'T', ascender: -10, descender: -10 },
+      /greater than descender/,
+    ],
+    [{ familyName: '   ' }, /familyName/],
+  ])('rejects %j', (options, message) => {
+    expect(() => buildMonogramFont(letters, options)).toThrow(message);
+  });
+
+  it('rejects a newline as a glyph letter', () => {
+    expect(() =>
+      buildMonogramFont({ '\n': letters.A }, { familyName: 'T' })
+    ).toThrow(/printable/);
+  });
+});

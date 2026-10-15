@@ -167,8 +167,10 @@ export function appendSvgPathData(
           rx,
           ry,
           xAxisRotation,
-          largeArcFlag,
-          sweepFlag,
+          // SVG treats any non-zero flag as true, but the helper only
+          // recognizes exactly 1 as a large arc.
+          largeArcFlag: largeArcFlag === 0 ? 0 : 1,
+          sweepFlag: sweepFlag === 0 ? 0 : 1,
         });
         for (const curve of curves) {
           emitCurve(

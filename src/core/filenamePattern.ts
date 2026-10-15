@@ -18,38 +18,56 @@ export type FilenamePattern = string;
 export const DEFAULT_FILENAME_PATTERN: FilenamePattern = '{letter}.svg';
 
 const TOKEN_PATTERN = /\{letter\}|\{number\}|\*/g;
-const REGEXP_SPECIAL_CHARACTERS = /[.*+?^${}()|[\]\\]/g;
 
-function escapeLiteral(text: string): string {
-  return text.replace(REGEXP_SPECIAL_CHARACTERS, '\\$&');
+type PatternElement =
+  | { kind: 'literal'; codePoint: string }
+  | { kind: 'letter' }
+  | { kind: 'number' }
+  | { kind: 'wildcard' };
+
+/** A {@link FilenamePattern} validated and ready for {@link matchFilenamePattern}. */
+export interface CompiledFilenamePattern {
+  readonly pattern: FilenamePattern;
+  readonly elements: readonly PatternElement[];
+}
+
+function toCodePoints(text: string): string[] {
+  return Array.from(text);
 }
 
 /**
- * Compiles a {@link FilenamePattern} template into a `RegExp` with exactly
- * one capture group, for the character the matched filename represents.
- * Throws if the template doesn't contain exactly one `{letter}`/`{number}`
- * placeholder.
+ * Compiles a {@link FilenamePattern} template for use with
+ * {@link matchFilenamePattern}. Throws if the template doesn't contain
+ * exactly one `{letter}`/`{number}` placeholder.
  */
-export function compileFilenamePattern(pattern: FilenamePattern): RegExp {
-  let source = '';
+export function compileFilenamePattern(
+  pattern: FilenamePattern
+): CompiledFilenamePattern {
+  const elements: PatternElement[] = [];
   let placeholderCount = 0;
   let previousEnd = 0;
+
+  const pushLiteral = (text: string): void => {
+    for (const codePoint of toCodePoints(text)) {
+      elements.push({ kind: 'literal', codePoint });
+    }
+  };
 
   for (const match of pattern.matchAll(TOKEN_PATTERN)) {
     const token = match[0];
     const index = match.index;
-    source += escapeLiteral(pattern.slice(previousEnd, index));
+    pushLiteral(pattern.slice(previousEnd, index));
 
     if (token === '*') {
-      source += '.*?';
+      elements.push({ kind: 'wildcard' });
     } else {
       placeholderCount += 1;
-      source += token === '{number}' ? '([0-9])' : '(.)';
+      elements.push({ kind: token === '{number}' ? 'number' : 'letter' });
     }
 
     previousEnd = index + token.length;
   }
-  source += escapeLiteral(pattern.slice(previousEnd));
+  pushLiteral(pattern.slice(previousEnd));
 
   if (placeholderCount !== 1) {
     throw new Error(
@@ -57,33 +75,87 @@ export function compileFilenamePattern(pattern: FilenamePattern): RegExp {
     );
   }
 
-  // 'u' makes `.` match one full Unicode code point (not half a surrogate
-  // pair); 's' makes it match line terminators too, matching the "any run
-  // of characters"/"any kind" wording in the docs above.
-  return new RegExp(`^${source}$`, 'ius');
+  return { pattern, elements };
 }
 
 /**
  * Filenames longer than this are rejected without being matched against the
- * pattern. Real monogram filenames are nowhere near this long; the guard
- * exists because a ZIP entry name is attacker-controlled input (up to 64 KiB
- * per the ZIP spec) and a pattern with several `*` wildcards backtracks in
- * time polynomial in the input length, so an unbounded name is a cheap way
- * to make matching slow.
+ * pattern. Real monogram filenames are nowhere near this long, and a ZIP
+ * entry name is attacker-controlled input (up to 64 KiB per the ZIP spec).
  */
 const MAX_FILENAME_LENGTH = 512;
+
+function foldCase(codePoint: string): string {
+  return codePoint.toLowerCase();
+}
+
+function isAsciiDigit(codePoint: string): boolean {
+  return codePoint >= '0' && codePoint <= '9';
+}
 
 /**
  * Matches `filename` (a basename, not a path) against a pattern already
  * compiled by {@link compileFilenamePattern}, returning the captured
  * character or `null` if `filename` doesn't match.
+ *
+ * Uses the classic linear wildcard scan (remember the most recent `*` and
+ * retry from there), so matching is O(filename x pattern) no matter how many
+ * `*` a template contains; a regex built from several `*` would backtrack
+ * exponentially-to-polynomially on a near-miss name.
  */
 export function matchFilenamePattern(
   filename: string,
-  compiledPattern: RegExp
+  compiledPattern: CompiledFilenamePattern
 ): string | null {
   if (filename.length > MAX_FILENAME_LENGTH) {
     return null;
   }
-  return filename.match(compiledPattern)?.[1] ?? null;
+
+  const { elements } = compiledPattern;
+  const text = toCodePoints(filename);
+  let textIndex = 0;
+  let elementIndex = 0;
+  let wildcardElementIndex = -1;
+  let wildcardTextIndex = 0;
+  let captured: string | null = null;
+
+  while (textIndex < text.length) {
+    const element = elements[elementIndex] as PatternElement | undefined;
+    const character = text[textIndex];
+
+    if (element?.kind === 'wildcard') {
+      wildcardElementIndex = elementIndex;
+      wildcardTextIndex = textIndex;
+      elementIndex += 1;
+      continue;
+    }
+
+    let isMatch = false;
+    if (element?.kind === 'literal') {
+      isMatch = foldCase(element.codePoint) === foldCase(character);
+    } else if (element?.kind === 'letter') {
+      isMatch = true;
+    } else if (element?.kind === 'number') {
+      isMatch = isAsciiDigit(character);
+    }
+
+    if (isMatch) {
+      if (element?.kind === 'letter' || element?.kind === 'number') {
+        captured = character;
+      }
+      textIndex += 1;
+      elementIndex += 1;
+    } else if (wildcardElementIndex >= 0) {
+      wildcardTextIndex += 1;
+      textIndex = wildcardTextIndex;
+      elementIndex = wildcardElementIndex + 1;
+    } else {
+      return null;
+    }
+  }
+
+  while (elements[elementIndex]?.kind === 'wildcard') {
+    elementIndex += 1;
+  }
+  return elementIndex === elements.length ? captured : null;
 }

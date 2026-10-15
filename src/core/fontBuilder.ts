@@ -1,5 +1,6 @@
 import { Font, Glyph, Path } from 'opentype.js';
 import { buildGlyphFromSvg } from './glyphBuilder.js';
+import { assertValidFontMetrics } from './fontMetrics.js';
 
 /** Maps each letter (e.g. `"A"`, `"a"`) to its monogram SVG markup. */
 export type LetterSvgMap = Readonly<Record<string, string>>;
@@ -43,10 +44,19 @@ export function buildMonogramFont(
   const ascender =
     options.ascender ?? Math.round(unitsPerEm * DEFAULT_ASCENDER_RATIO);
   const descender = options.descender ?? ascender - unitsPerEm;
-  if (descender > 0) {
-    throw new Error(
-      `descender must be negative or zero, received ${descender}.`
-    );
+  assertValidFontMetrics({
+    unitsPerEm,
+    ascender,
+    descender,
+    sideBearing: options.sideBearing,
+  });
+  const familyName = options.familyName;
+  if (typeof familyName !== 'string' || familyName.trim() === '') {
+    throw new Error('familyName must be a non-empty string.');
+  }
+  const styleName = options.styleName ?? 'Regular';
+  if (typeof styleName !== 'string' || styleName.trim() === '') {
+    throw new Error('styleName must be a non-empty string.');
   }
 
   const notdefGlyph = new Glyph({
@@ -70,8 +80,8 @@ export function buildMonogramFont(
   }
 
   return new Font({
-    familyName: options.familyName,
-    styleName: options.styleName ?? 'Regular',
+    familyName,
+    styleName,
     unitsPerEm,
     ascender,
     descender,

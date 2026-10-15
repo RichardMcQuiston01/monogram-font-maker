@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -105,6 +105,47 @@ describe('Node filesystem helpers', () => {
         filenamePattern: '*_monogram_{letter}.svg',
       })
     ).rejects.toThrow(/duplicate/i);
+  });
+
+  it('loadLettersFromDirectory ignores a subdirectory whose name matches', async () => {
+    await mkdir(join(dir, 'A.svg'));
+    await writeFile(join(dir, 'B.svg'), SVG_B);
+
+    const letters = await loadLettersFromDirectory(dir);
+
+    expect(letters).toEqual({ B: SVG_B });
+  });
+
+  it('loadLettersFromDirectory throws when only a directory matches', async () => {
+    await mkdir(join(dir, 'A.svg'));
+
+    await expect(loadLettersFromDirectory(dir)).rejects.toThrow(
+      /no filenames matching the pattern/i
+    );
+  });
+
+  it('loadLettersFromFiles reports a directory path as not a file', async () => {
+    const dirPath = join(dir, 'A.svg');
+    await mkdir(dirPath);
+
+    await expect(loadLettersFromFiles([dirPath])).rejects.toThrow(
+      /is not a file/i
+    );
+  });
+
+  it('loadLettersFromFiles rejects an empty list like the other loaders', async () => {
+    await expect(loadLettersFromFiles([])).rejects.toThrow(
+      /no filenames matching the pattern/i
+    );
+  });
+
+  it('loadLettersFromFiles rejects a file past the size limit', async () => {
+    const bigPath = join(dir, 'A.svg');
+    await writeFile(bigPath, ' '.repeat(6 * 1024 * 1024));
+
+    await expect(loadLettersFromFiles([bigPath])).rejects.toThrow(
+      /more than the limit/i
+    );
   });
 
   it('writeMonogramFont writes a non-empty OpenType font file to disk', async () => {
