@@ -12,7 +12,7 @@ The point is to remove the manual, per-letter image import step from laser-templ
 
 ### Input format
 
-Monogram letters must be supplied as SVG (`<svg viewBox="..."><path d="..."/></svg>`), one `<path>`-based design per letter. SVG was chosen over raster formats (PNG/JPG) because it already carries the clean vector outlines a font glyph needs — no lossy auto-tracing step, and no fidelity loss for laser-ready artwork. Each SVG needs a `viewBox` (or `width`/`height`) so its artwork can be scaled into the font's grid; groups, transforms, and non-`<path>` shapes (`<circle>`, `<rect>`, text, etc.) aren't resolved yet, so flatten artwork to paths before use.
+Monogram letters must be supplied as SVG (`<svg viewBox="..."><path d="..."/></svg>`), one `<path>`-based design per letter. SVG was chosen over raster formats (PNG/JPG) because it already carries the clean vector outlines a font glyph needs — no lossy auto-tracing step, and no fidelity loss for laser-ready artwork. Each SVG needs a `viewBox` (or `width`/`height`) so its artwork can be scaled into the font's grid; `transform` attributes and non-`<path>` shapes (`<circle>`, `<rect>`, text, etc.) aren't resolved yet, so flatten artwork to paths before use. A `transform` on a painted path or its ancestors is rejected with an error. `fill-rule="evenodd"` compound paths (counters in A, B, O, ...) are supported as long as their contours don't cross each other. Limits: 1000 entries per ZIP/directory, 5 MiB per SVG, 50 MiB total.
 
 ### Filenames
 

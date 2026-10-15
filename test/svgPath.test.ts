@@ -131,6 +131,17 @@ describe('appendSvgPathData', () => {
     expect(lastCommand.y).toBeCloseTo(0);
   });
 
+  it('treats any non-zero large-arc flag as a large arc', () => {
+    const buildCommands = (flag: number): unknown => {
+      const path = new Path();
+      appendSvgPathData(path, `M0,0 A10,8 0 ${flag},1 10,0`, identity);
+      return path.commands;
+    };
+
+    expect(buildCommands(2)).toEqual(buildCommands(1));
+    expect(buildCommands(1)).not.toEqual(buildCommands(0));
+  });
+
   it('propagates a parse error for malformed path data', () => {
     const path = new Path();
     expect(() => appendSvgPathData(path, 'M0,0 L10', identity)).toThrow(

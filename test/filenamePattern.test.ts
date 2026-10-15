@@ -80,3 +80,23 @@ describe('compileFilenamePattern / matchFilenamePattern', () => {
     expect(matchFilenamePattern(longFilename, pattern)).toBeNull();
   });
 });
+
+describe('matchFilenamePattern performance', () => {
+  it('rejects a long near-miss name against a many-wildcard pattern quickly', () => {
+    const pattern = compileFilenamePattern('*_*_*_*_*_*_{letter}.svg');
+    const nearMiss = `${'a_'.repeat(250)}.sv`;
+
+    const startedAt = performance.now();
+    const result = matchFilenamePattern(nearMiss, pattern);
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(result).toBeNull();
+    expect(elapsedMs).toBeLessThan(50);
+  });
+
+  it('still captures the letter when several wildcards must backtrack', () => {
+    const pattern = compileFilenamePattern('*_*_{letter}.svg');
+
+    expect(matchFilenamePattern('a_b_c_d_X.svg', pattern)).toBe('X');
+  });
+});
