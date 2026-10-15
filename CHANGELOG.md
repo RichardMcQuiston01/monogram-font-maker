@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## Unreleased
+## 0.3.0
 
 - Security: bump the dev toolchain so `npm audit` is clean (`source-map-js` 1.2.2+ via lockfile, `esbuild` 0.28.1+ via an npm override).
 - Reject oversized input before decoding it: at most 1000 archive/directory entries, 5 MiB per SVG, 50 MiB total, checked against the ZIP header and while streaming.
