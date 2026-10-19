@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.3.1
+
+- Add a `funding` field to `package.json` so `npm fund` and the npm page show the donate link.
+
 ## 0.3.0
 
 - Security: bump the dev toolchain so `npm audit` is clean (`source-map-js` 1.2.2+ via lockfile, `esbuild` 0.28.1+ via an npm override).
